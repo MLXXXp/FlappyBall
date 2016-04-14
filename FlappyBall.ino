@@ -182,6 +182,7 @@ void loop() {
     arduboy.print("High");
 
     arduboy.display();
+    delay(1500);         // give some time to stop pressing buttons
 
     while (!arduboy.buttonsState());
 
