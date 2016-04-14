@@ -12,11 +12,11 @@ Arduboy arduboy;
 // Things that make the game work the way it does
 #define PIPE_ARRAY_SIZE 4  // At current settings only 3 sets of pipes can be onscreen at once
 #define PIPE_WIDTH 12
-#define PIPE_GAP_HEIGHT 30
+#define PIPE_GAP_HEIGHT 28
 #define PIPE_CAP_WIDTH 2
 #define PIPE_CAP_HEIGHT 3      // Caps push back into the pipe, it's not added length
-#define PIPE_MIN_HEIGHT 8      // Higher values center the gaps more
-#define PIPE_GEN_FRAMES 30     // How many frames until a new pipe is generated
+#define PIPE_MIN_HEIGHT 6      // Higher values center the gaps more
+#define PIPE_GEN_FRAMES 32     // How many frames until a new pipe is generated
 #define BALL_FALL_FRAMES 2     // How many frames until the ball is moved down
 #define BALL_RADIUS 4
 #define JUMP_HEIGHT -4         // Jumping is negative because 0 is up
@@ -60,6 +60,7 @@ const byte PROGMEM hit [] = {
 
 void setup() {
   arduboy.begin();
+  arduboy.initRandomSeed();
   arduboy.setFrameRate(30);
   arduboy.tunes.playScore (bing);
   delay(1500);
@@ -234,7 +235,7 @@ void generatePipe() {
   for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) {
     if (pipes[0][x] == 255) {  // If the element is inactive (255)
       pipes[0][x] = WIDTH;  // Then create it starting right of the screen
-      pipes[1][x] = random(PIPE_MIN_HEIGHT,HEIGHT-(PIPE_MIN_HEIGHT*2)-PIPE_GAP_HEIGHT);
+      pipes[1][x] = random(PIPE_MIN_HEIGHT, HEIGHT - PIPE_MIN_HEIGHT - PIPE_GAP_HEIGHT);
       return;
     }
   }
