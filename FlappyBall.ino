@@ -17,7 +17,7 @@ Arduboy arduboy;
 #define PIPE_CAP_HEIGHT 3      // Caps push back into the pipe, it's not added length
 #define PIPE_MIN_HEIGHT 8      // Higher values center the gaps more
 #define PIPE_GEN_FRAMES 30     // How many frames until a new pipe is generated
-#define PIPE_FALL_FRAMES 2     // How many frames until the ball is moved down
+#define BALL_FALL_FRAMES 2     // How many frames until the ball is moved down
 #define BALL_RADIUS 4
 #define JUMP_HEIGHT -4         // Jumping is negative because 0 is up
 
@@ -105,7 +105,7 @@ void loop() {
     if (arduboy.everyXFrames(PIPE_GEN_FRAMES)) { // Every PIPE_GEN_FRAMES worth of frames
       generatePipe();                  // Generate a pipe
     }
-    if (arduboy.everyXFrames(PIPE_FALL_FRAMES)) {
+    if (arduboy.everyXFrames(BALL_FALL_FRAMES)) {
       ballVY++; // Decrement VY
       ballY = ballY + ballVY;          // Move the ball according to ballVY
     }
