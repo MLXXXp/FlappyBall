@@ -11,8 +11,10 @@ Arduboy arduboy;
 
 // Things that make the game work the way it does
 #define PIPE_ARRAY_SIZE 4  // At current settings only 3 sets of pipes can be onscreen at once
+#define PIPE_GAP_MAX 32        // Maximum pipe gap
+#define PIPE_GAP_MIN 20        // Minimum pipe gap
+#define PIPE_GAP_REDUCE 7      // Number of points scored to reduce gap size
 #define PIPE_WIDTH 12
-#define PIPE_GAP_HEIGHT 28
 #define PIPE_CAP_WIDTH 2
 #define PIPE_CAP_HEIGHT 3      // Caps push back into the pipe, it's not added length
 #define PIPE_MIN_HEIGHT 6      // Higher values center the gaps more
@@ -27,6 +29,8 @@ byte gameState = 0;
 unsigned int gameScore = 0;
 unsigned int gameHighScore = 0;
 char pipes[2][PIPE_ARRAY_SIZE]; // Row 0 for x values, row 1 for gap location
+byte pipeGap = PIPE_GAP_MAX;    // Height of gap between pipes to fly through
+byte pipeReduceCount = PIPE_GAP_REDUCE; // Score tracker for pipe gap reduction
 char ballY = 32;                // Floaty's height
 char ballVY = 0;                // Floaty's vertical velocity
 char ballFlapper = BALL_RADIUS; // Floaty's wing length
@@ -120,7 +124,8 @@ void loop() {
           pipes[0][x] = 0;              // Then set it inactive
         }
         if (pipes[0][x] + PIPE_WIDTH == (BALL_X - BALL_RADIUS)) {  // If the pipe passed Floaty
-          gameScore++;                  // And increment the score
+          gameScore++;                  // Increment the score
+          pipeReduceCount--;            // Decrement the gap reduction counter
           gameScoreX = BALL_X;                  // Load up the floating text with
           gameScoreY = ballY - BALL_RADIUS - 8; //  current ball x/y values
           gameScoreRiser = 15;          // And set it for 15 frames
@@ -156,6 +161,12 @@ void loop() {
     drawPipes();
     drawFloor();
     drawFloaty();
+
+    // Reduce pipe gaps as the game progresses
+    if ((pipeGap > PIPE_GAP_MIN) && (pipeReduceCount <= 0)) {
+      pipeGap--;
+      pipeReduceCount = PIPE_GAP_REDUCE;  // Restart the countdown
+    }
   }
 
   if (gameState == 2) {  // If the gameState is 2 then we draw a Game Over screen w/ score
@@ -201,8 +212,10 @@ void loop() {
     for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { pipes[0][x] = 0; }  // set all pipes inactive
     ballY = 32;          // Reset ball to center
     ballVY = 0;          // With zero lift
-    delay(250);          // Slight delay so input doesn't break pause
+    pipeGap = PIPE_GAP_MAX; // Reset the pipe gap height
+    pipeReduceCount = PIPE_GAP_REDUCE; // Init the pipe gap reduction counter
 
+    delay(250);          // Slight delay so input doesn't break pause
   }
 
   arduboy.display();  // Finally draw this thang
@@ -228,13 +241,13 @@ void drawPipes() {
                                // otherwise it is the xvalue of the pipe's left edge
       // Pipes
       arduboy.drawRect(pipes[0][x], -1, PIPE_WIDTH, pipes[1][x], WHITE);
-      arduboy.drawRect(pipes[0][x], pipes[1][x] + PIPE_GAP_HEIGHT, PIPE_WIDTH, HEIGHT - pipes[1][x] - PIPE_GAP_HEIGHT, WHITE);
+      arduboy.drawRect(pipes[0][x], pipes[1][x] + pipeGap, PIPE_WIDTH, HEIGHT - pipes[1][x] - pipeGap, WHITE);
       // Caps
       arduboy.drawRect(pipes[0][x] - PIPE_CAP_WIDTH, pipes[1][x] - PIPE_CAP_HEIGHT, PIPE_WIDTH + (PIPE_CAP_WIDTH*2), PIPE_CAP_HEIGHT, WHITE);
-      arduboy.drawRect(pipes[0][x] - PIPE_CAP_WIDTH, pipes[1][x] + PIPE_GAP_HEIGHT, PIPE_WIDTH + (PIPE_CAP_WIDTH*2), PIPE_CAP_HEIGHT, WHITE);
+      arduboy.drawRect(pipes[0][x] - PIPE_CAP_WIDTH, pipes[1][x] + pipeGap, PIPE_WIDTH + (PIPE_CAP_WIDTH*2), PIPE_CAP_HEIGHT, WHITE);
       // Detail lines
       arduboy.drawLine(pipes[0][x]+2, 0, pipes[0][x]+2, pipes[1][x]-5, WHITE);
-      arduboy.drawLine(pipes[0][x]+2, pipes[1][x] + PIPE_GAP_HEIGHT + 5, pipes[0][x]+2, HEIGHT - 3,WHITE);
+      arduboy.drawLine(pipes[0][x]+2, pipes[1][x] + pipeGap + 5, pipes[0][x]+2, HEIGHT - 3,WHITE);
     }
   }
 }
@@ -243,7 +256,7 @@ void generatePipe() {
   for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) {
     if (pipes[0][x] == 0) { // If the element is inactive
       pipes[0][x] = WIDTH;  // Then create it starting right of the screen
-      pipes[1][x] = random(PIPE_MIN_HEIGHT, HEIGHT - PIPE_MIN_HEIGHT - PIPE_GAP_HEIGHT);
+      pipes[1][x] = random(PIPE_MIN_HEIGHT, HEIGHT - PIPE_MIN_HEIGHT - pipeGap);
       return;
     }
   }
@@ -269,10 +282,10 @@ boolean checkPipe(byte x) {  // Collision detection, x is pipe to check
   ByA = pipes[1][x] - PIPE_CAP_HEIGHT;
   if (AxA < BxB && AxB > BxA && AyA < ByB && AyB > ByA) { return true; } // Collided with top cap
   
-  // check bottom cyllinder
+  // check bottom cylinder
   BxA = pipes[0][x];
   BxB = pipes[0][x] + PIPE_WIDTH;
-  ByA = pipes[1][x] + PIPE_GAP_HEIGHT;
+  ByA = pipes[1][x] + pipeGap;
   ByB = HEIGHT-1;
   if (AxA < BxB && AxB > BxA && AyA < ByB && AyB > ByA) { return true; } // Collided with bottom pipe
   
