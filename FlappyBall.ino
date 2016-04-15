@@ -60,7 +60,6 @@ const byte PROGMEM hit [] = {
 
 void setup() {
   arduboy.begin();
-  arduboy.initRandomSeed();
   arduboy.setFrameRate(30);
   arduboy.tunes.playScore (bing);
   delay(1500);
@@ -75,6 +74,7 @@ void setup() {
 
   while (!arduboy.buttonsState());
 
+  arduboy.initRandomSeed();
   delay(500);
   for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { pipes[0][x] = 255; }  // set all pipes offscreen
 }
