@@ -17,22 +17,21 @@ Arduboy arduboy;
 #define PIPE_CAP_HEIGHT 3      // Caps push back into the pipe, it's not added length
 #define PIPE_MIN_HEIGHT 6      // Higher values center the gaps more
 #define PIPE_GEN_FRAMES 32     // How many frames until a new pipe is generated
-#define BALL_FALL_FRAMES 2     // How many frames until the ball is moved down
+#define BALL_MOVE_FRAMES 2     // How many frames until the ball is moved
 #define BALL_RADIUS 4
+#define BALL_X 32              // Floaty's X Axis
 #define JUMP_HEIGHT -4         // Jumping is negative because 0 is up
 
 // Storage Vars
+byte gameState = 0;
 unsigned int gameScore = 0;
 unsigned int gameHighScore = 0;
-byte pipes[2][PIPE_ARRAY_SIZE]; // Row 0 for x values, row 1 for gap location
-byte ballY = 32;                // Floaty's height
-byte ballX = 32;                // Floaty's X Axis
+char pipes[2][PIPE_ARRAY_SIZE]; // Row 0 for x values, row 1 for gap location
+char ballY = 32;                // Floaty's height
+char ballVY = 0;                // Floaty's vertical velocity
 char ballFlapper = BALL_RADIUS; // Floaty's wing length
-byte ballVY = 0;
-byte gameState = 0;
-byte gameScoreX = 0;
-byte gameScoreY = 0;
-byte gameScoreVY = 0;
+char gameScoreX = 0;
+char gameScoreY = 0;
 byte gameScoreRiser = 0;
 
 // Sounds
@@ -76,7 +75,7 @@ void setup() {
 
   arduboy.initRandomSeed();
   delay(500);
-  for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { pipes[0][x] = 255; }  // set all pipes offscreen
+  for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { pipes[0][x] = 0; }  // Set all pipes offscreen
 }
 
 void loop() {
@@ -106,21 +105,24 @@ void loop() {
     if (arduboy.everyXFrames(PIPE_GEN_FRAMES)) { // Every PIPE_GEN_FRAMES worth of frames
       generatePipe();                  // Generate a pipe
     }
-    if (arduboy.everyXFrames(BALL_FALL_FRAMES)) {
-      ballVY++; // Decrement VY
-      ballY = ballY + ballVY;          // Move the ball according to ballVY
+    if (arduboy.everyXFrames(BALL_MOVE_FRAMES)) {
+      ballY += ballVY;                // Move the ball according to ballVY
+      ballVY++;                       // Increase the fall rate
+      if (ballY < BALL_RADIUS) {
+        ballY = BALL_RADIUS;          // No clipping the top
+        ballVY = 1;                   // Start Falling
+      }
     }
-    if (ballY < BALL_RADIUS) { ballY = BALL_RADIUS; } // No clipping the top
     for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) {  // For each pipe array element
-      if (pipes[0][x] != 255) {         // If the x value isn't 255
+      if (pipes[0][x] != 0) {           // If the pipe is active
         pipes[0][x] = pipes[0][x] - 2;  // Then move it left 2px
         if (pipes[0][x] + PIPE_WIDTH < 0) {  // If the pipe's right edge is off screen
-        pipes[0][x] = 255;              // Then set its value to 255
-      }
-        if (pipes[0][x] + PIPE_WIDTH == (ballX-BALL_RADIUS)) {  // If the pipe passed Floaty
+          pipes[0][x] = 0;              // Then set it inactive
+        }
+        if (pipes[0][x] + PIPE_WIDTH == (BALL_X - BALL_RADIUS)) {  // If the pipe passed Floaty
           gameScore++;                  // And increment the score
-          gameScoreX = ballX;           // Load up the floating text with
-          gameScoreY = ballY - BALL_RADIUS; // Current ball x/y values
+          gameScoreX = BALL_X;                  // Load up the floating text with
+          gameScoreY = ballY - BALL_RADIUS - 8; //  current ball x/y values
           gameScoreRiser = 15;          // And set it for 15 frames
           if (arduboy.tunes.playing()) { arduboy.tunes.stopScore(); }
           arduboy.tunes.playScore (point);
@@ -129,10 +131,15 @@ void loop() {
     }
 
     if (gameScoreRiser > 0) {  // If we have floating text
-      arduboy.setCursor(gameScoreX - 2,gameScoreY + gameScoreRiser - 24);
-      arduboy.print(gameScore);               
-      gameScoreX = gameScoreX - 2;
-      gameScoreRiser--;
+      gameScoreY--;
+      if (gameScoreY >= 0) { // If the score will still be on the screen
+        arduboy.setCursor(gameScoreX, gameScoreY);
+        arduboy.print(gameScore);
+        gameScoreX = gameScoreX - 2;
+        gameScoreRiser--;
+      } else {
+        gameScoreRiser = 0;
+      }
     }
 
     if (ballY + BALL_RADIUS > (HEIGHT-1)) {  // If the ball has fallen below the screen
@@ -141,7 +148,7 @@ void loop() {
     }
     // Collision checking
     for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { // For each pipe array element
-      if (pipes[0][x] != 255) {               // If the pipe is active (not 255)
+      if (pipes[0][x] != 0) {                 // If the pipe is active (not 0)
         if (checkPipe(x)) { gameState = 2; }  // If the check is true, game over
       }
     }
@@ -167,6 +174,7 @@ void loop() {
       drawFloor();
       drawFloaty();
       arduboy.display();
+      while (!arduboy.nextFrame()) {}  // Wait for next frame
     }
     arduboy.tunes.playScore (horns);     // SOUND THE LOSER'S HORN  
     arduboy.drawRect(16,8,96,48, WHITE); // Box border
@@ -183,14 +191,14 @@ void loop() {
     arduboy.print("High");
 
     arduboy.display();
-    delay(1500);         // give some time to stop pressing buttons
+    delay(1500);         // Give some time to stop pressing buttons
 
     while (!arduboy.buttonsState());
 
     gameState = 0;       // Then start the game paused
     gameScore = 0;       // Reset score to 0
     gameScoreRiser = 0;  // Clear the floating score
-    for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { pipes[0][x] = 255; }  // set all pipes inactive
+    for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { pipes[0][x] = 0; }  // set all pipes inactive
     ballY = 32;          // Reset ball to center
     ballVY = 0;          // With zero lift
     delay(250);          // Slight delay so input doesn't break pause
@@ -207,16 +215,16 @@ void drawFloor() {
 void drawFloaty() {
   ballFlapper--;
   if (ballFlapper < 0) { ballFlapper = BALL_RADIUS; }  // Flapper starts at the top of the ball
-  arduboy.drawCircle(ballX, ballY, BALL_RADIUS, BLACK);  // Black out behind the ball
-  arduboy.drawCircle(ballX, ballY, BALL_RADIUS, WHITE);  // Draw outline
-  arduboy.drawLine(ballX, ballY, ballX-(BALL_RADIUS+1), ballY - ballFlapper, WHITE);  // Draw wing
-  arduboy.drawPixel(ballX-(BALL_RADIUS+1), ballY - ballFlapper + 1, WHITE);  // Dot the wing
-  arduboy.drawPixel(ballX+1, ballY-2, WHITE);  // Eye 
+  arduboy.drawCircle(BALL_X, ballY, BALL_RADIUS, BLACK);  // Black out behind the ball
+  arduboy.drawCircle(BALL_X, ballY, BALL_RADIUS, WHITE);  // Draw outline
+  arduboy.drawLine(BALL_X, ballY, BALL_X - (BALL_RADIUS+1), ballY - ballFlapper, WHITE);  // Draw wing
+  arduboy.drawPixel(BALL_X - (BALL_RADIUS+1), ballY - ballFlapper + 1, WHITE);  // Dot the wing
+  arduboy.drawPixel(BALL_X + 1, ballY - 2, WHITE);  // Eye
 }
 
 void drawPipes() {
   for (byte x = 0; x < PIPE_ARRAY_SIZE; x++){
-    if (pipes[0][x] != 255) {  // value set to 255 if array element is inactive,
+    if (pipes[0][x] != 0) {    // Value set to 0 if array element is inactive,
                                // otherwise it is the xvalue of the pipe's left edge
       // Pipes
       arduboy.drawRect(pipes[0][x], -1, PIPE_WIDTH, pipes[1][x], WHITE);
@@ -233,7 +241,7 @@ void drawPipes() {
 
 void generatePipe() {
   for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) {
-    if (pipes[0][x] == 255) {  // If the element is inactive (255)
+    if (pipes[0][x] == 0) { // If the element is inactive
       pipes[0][x] = WIDTH;  // Then create it starting right of the screen
       pipes[1][x] = random(PIPE_MIN_HEIGHT, HEIGHT - PIPE_MIN_HEIGHT - PIPE_GAP_HEIGHT);
       return;
@@ -242,8 +250,8 @@ void generatePipe() {
 }
 
 boolean checkPipe(byte x) {  // Collision detection, x is pipe to check
-  byte AxA = ballX - (BALL_RADIUS-1);  // Hit box for floaty is a square
-  byte AxB = ballX + (BALL_RADIUS-1);  // If the ball radius increases too much, corners
+  byte AxA = BALL_X - (BALL_RADIUS-1);  // Hit box for floaty is a square
+  byte AxB = BALL_X + (BALL_RADIUS-1);  // If the ball radius increases too much, corners
   byte AyA = ballY - (BALL_RADIUS-1);  // of the hitbox will go outside of floaty's
   byte AyB = ballY + (BALL_RADIUS-1);  // drawing
   byte BxA, BxB, ByA, ByB;
