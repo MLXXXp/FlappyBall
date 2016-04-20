@@ -10,8 +10,27 @@
 Arduboy arduboy;
 
 // Things that make the game work the way it does
+#define FRAMES_PER_SECOND 30   // The update and refresh speed
+#define FRAC_BITS 4            // The number of bits in the fraction part of a fixed point int
+
+// The following values define how fast the ball will accelerate and how high it will jump.
+// They are given as fixed point integers so the true value is multiplied by (1 << FRAC_BITS)
+// to give the value used. The resulting values must be integers.
+#define BALL_ACCELERATION 4      // (0.25) the ball acceleration in pixels per frame squared
+#define BALL_JUMP_VELOCITY (-36) // (-2.25) The inital velocity of a ball jump in pixels per frame
+// ---------------------------
+
+// This value is an offset to make it easier to work with negative numbers.
+// It must be greater than the maximum number of pixels that Floaty will jump above
+// the start height (based on the acceleration and initial velocity values),
+// but must be low enough not to cause an overflow when added to the maximum
+// screen height as an integer.
+#define NEG_OFFSET 256
+
+// Pipe
 #define PIPE_ARRAY_SIZE 4  // At current settings only 3 sets of pipes can be onscreen at once
-#define PIPE_GAP_MAX 32        // Maximum pipe gap
+#define PIPE_MOVE_DISTANCE 2   // How far each pipe moves per frame
+#define PIPE_GAP_MAX 30        // Maximum pipe gap
 #define PIPE_GAP_MIN 20        // Minimum pipe gap
 #define PIPE_GAP_REDUCE 7      // Number of points scored to reduce gap size
 #define PIPE_WIDTH 12
@@ -19,10 +38,11 @@ Arduboy arduboy;
 #define PIPE_CAP_HEIGHT 3      // Caps push back into the pipe, it's not added length
 #define PIPE_MIN_HEIGHT 6      // Higher values center the gaps more
 #define PIPE_GEN_FRAMES 32     // How many frames until a new pipe is generated
-#define BALL_MOVE_FRAMES 2     // How many frames until the ball is moved
+
+// Ball
 #define BALL_RADIUS 4
+#define BALL_Y_START (HEIGHT / 2) // The height Floaty begins at
 #define BALL_X 32              // Floaty's X Axis
-#define JUMP_HEIGHT -4         // Jumping is negative because 0 is up
 
 // Storage Vars
 byte gameState = 0;
@@ -31,8 +51,11 @@ unsigned int gameHighScore = 0;
 char pipes[2][PIPE_ARRAY_SIZE]; // Row 0 for x values, row 1 for gap location
 byte pipeGap = PIPE_GAP_MAX;    // Height of gap between pipes to fly through
 byte pipeReduceCount = PIPE_GAP_REDUCE; // Score tracker for pipe gap reduction
-char ballY = 32;                // Floaty's height
-char ballVY = 0;                // Floaty's vertical velocity
+char ballY = BALL_Y_START;      // Floaty's height
+char ballYprev = BALL_Y_START;  // Previous height
+char ballYi = BALL_Y_START;     // Floaty's initial height for the current arc
+int ballV = 0;                  // For height calculations (Vi + ((a * t) / 2))
+byte ballFrame = 0;             // Frame count for the current arc
 char ballFlapper = BALL_RADIUS; // Floaty's wing length
 char gameScoreX = 0;
 char gameScoreY = 0;
@@ -63,22 +86,22 @@ const byte PROGMEM hit [] = {
 
 void setup() {
   arduboy.begin();
-  arduboy.setFrameRate(30);
-  arduboy.tunes.playScore (bing);
+  arduboy.setFrameRate(FRAMES_PER_SECOND);
+  playSound(bing);
   delay(1500);
   arduboy.clear();
   arduboy.drawSlowXYBitmap(0,0,floatyball,128,64,1);
   arduboy.display();
-  arduboy.tunes.playScore (intro);
+  playSound(intro);
   delay(500);
   arduboy.setCursor(18,55);
   arduboy.print("Press Any Button");
   arduboy.display();
 
-  while (!arduboy.buttonsState());
+  while (!arduboy.buttonsState()) { } // Wait for any key press
+  debounceButtons();
 
   arduboy.initRandomSeed();
-  delay(500);
   for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { pipes[0][x] = 0; }  // Set all pipes offscreen
 }
 
@@ -87,39 +110,38 @@ void loop() {
     return;
 
   arduboy.clear();
-  if (gameState == 0) {       // If the game is paused
+
+  // ===== State: Wait to begin =====
+  if (gameState == 0) {     // If waiting to begin
     drawFloor();
     drawFloaty();
-    if (arduboy.buttonsState()) { // Wait for a button press
-      gameState = 1;          // Then start the game
-      ballVY = JUMP_HEIGHT;    // And make Floaty jump
-      if (arduboy.tunes.playing()) { arduboy.tunes.stopScore(); }
-      arduboy.tunes.playScore (flap);
+    if (jumpPressed()) {    // Wait for a jump button press
+      gameState = 1;        // Then start the game
+      beginJump();          // And make Floaty jump
     }
   }
 
-  if (gameState == 1) {       // If the game is playing
-    if (ballVY > 0) {         // If the ball isn't already rising, check for jump
-      if (arduboy.pressed(B_BUTTON) || arduboy.pressed(A_BUTTON)) {
-        ballVY = JUMP_HEIGHT;  // jump
-        if (arduboy.tunes.playing()) { arduboy.tunes.stopScore(); }
-        arduboy.tunes.playScore (flap);
-      }
+  // ===== State: Playing =====
+  if (gameState == 1) {     // If the game is playing
+    // If the ball isn't already rising, check for jump
+    if ((ballYprev <= ballY) && jumpPressed()) {
+      beginJump();          // Jump
     }
+
+    moveFloaty();
+
+    if (ballY < BALL_RADIUS) {  // If Floaty has moved above the top of the screen
+      ballY = BALL_RADIUS;      // Set position to top
+      startFalling();           // Start falling
+    }
+
     if (arduboy.everyXFrames(PIPE_GEN_FRAMES)) { // Every PIPE_GEN_FRAMES worth of frames
       generatePipe();                  // Generate a pipe
     }
-    if (arduboy.everyXFrames(BALL_MOVE_FRAMES)) {
-      ballY += ballVY;                // Move the ball according to ballVY
-      ballVY++;                       // Increase the fall rate
-      if (ballY < BALL_RADIUS) {
-        ballY = BALL_RADIUS;          // No clipping the top
-        ballVY = 1;                   // Start Falling
-      }
-    }
+
     for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) {  // For each pipe array element
       if (pipes[0][x] != 0) {           // If the pipe is active
-        pipes[0][x] = pipes[0][x] - 2;  // Then move it left 2px
+        pipes[0][x] = pipes[0][x] - PIPE_MOVE_DISTANCE;  // Then move it left
         if (pipes[0][x] + PIPE_WIDTH < 0) {  // If the pipe's right edge is off screen
           pipes[0][x] = 0;              // Then set it inactive
         }
@@ -129,8 +151,7 @@ void loop() {
           gameScoreX = BALL_X;                  // Load up the floating text with
           gameScoreY = ballY - BALL_RADIUS - 8; //  current ball x/y values
           gameScoreRiser = 15;          // And set it for 15 frames
-          if (arduboy.tunes.playing()) { arduboy.tunes.stopScore(); }
-          arduboy.tunes.playScore (point);
+          playSound(point);
         }
       }
     }
@@ -169,25 +190,23 @@ void loop() {
     }
   }
 
+  // ===== State: Game Over =====
   if (gameState == 2) {  // If the gameState is 2 then we draw a Game Over screen w/ score
     if (gameScore > gameHighScore) { gameHighScore = gameScore; }
-    if (arduboy.tunes.playing()) { arduboy.tunes.stopScore(); }
     arduboy.display();              // Make sure final frame is drawn
-    arduboy.tunes.playScore (hit);  // Hit sound
+    playSound(hit);                 // Hit sound
     delay(100);                     // Pause for the sound
+    startFalling();                 // Start falling from current position
     while (ballY + BALL_RADIUS < (HEIGHT-1)) {  // While floaty is still airborne
-      if (ballVY < 0) { ballVY = 0; } // Stop any upward momentum
-      ballY = ballY + ballVY;       // Fall
-      ballVY++;                     // Increase falling speed
-      if (ballY + BALL_RADIUS > (HEIGHT-1)) { ballY = HEIGHT - BALL_RADIUS; } // Don't fall through the floor plx
+      moveFloaty();
       arduboy.clear();
       drawPipes();
       drawFloor();
       drawFloaty();
       arduboy.display();
-      while (!arduboy.nextFrame()) {}  // Wait for next frame
+      while (!arduboy.nextFrame()) { }  // Wait for next frame
     }
-    arduboy.tunes.playScore (horns);     // SOUND THE LOSER'S HORN  
+    playSound(horns);                    // Sound the loser's horn
     arduboy.drawRect(16,8,96,48, WHITE); // Box border
     arduboy.fillRect(17,9,94,46, BLACK); // Black out the inside
     arduboy.drawSlowXYBitmap(30,12,gameover,72,14,1);
@@ -204,18 +223,17 @@ void loop() {
     arduboy.display();
     delay(1500);         // Give some time to stop pressing buttons
 
-    while (!arduboy.buttonsState());
+    while (!jumpPressed()) { } // Wait for a jump button to be pressed
+    debounceButtons();
 
     gameState = 0;       // Then start the game paused
+    playSound(intro);    // Play the intro
     gameScore = 0;       // Reset score to 0
     gameScoreRiser = 0;  // Clear the floating score
     for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { pipes[0][x] = 0; }  // set all pipes inactive
-    ballY = 32;          // Reset ball to center
-    ballVY = 0;          // With zero lift
+    ballY = BALL_Y_START;   // Reset to initial ball height
     pipeGap = PIPE_GAP_MAX; // Reset the pipe gap height
     pipeReduceCount = PIPE_GAP_REDUCE; // Init the pipe gap reduction counter
-
-    delay(250);          // Slight delay so input doesn't break pause
   }
 
   arduboy.display();  // Finally draw this thang
@@ -296,6 +314,51 @@ boolean checkPipe(byte x) {  // Collision detection, x is pipe to check
   if (AxA < BxB && AxB > BxA && AyA < ByB && AyB > ByA) { return true; } // Collided with bottom pipe
 
   return false; // Nothing hits
+}
+
+boolean jumpPressed() { // Return "true" if a jump button is pressed
+  return (arduboy.buttonsState() & (UP_BUTTON | DOWN_BUTTON | A_BUTTON | B_BUTTON)) != 0;
+}
+
+void beginJump() {
+  playSound(flap);
+  ballV = BALL_JUMP_VELOCITY;
+  ballFrame = 0;
+  ballYi = ballY;
+}
+
+void startFalling() {   // Start falling from current height
+  ballFrame = 0;        // Start a new fall
+  ballYi = ballY;       // Set initial arc position
+  ballV = 0;            // Set velocity to 0
+}
+
+void moveFloaty() {
+  ballYprev = ballY;                   // Save the previous height
+  ballFrame++;                         // Next frame
+  ballV += (BALL_ACCELERATION / 2);    // Increase the velocity
+                                     // Calculate Floaty's new height:
+  ballY = ((((ballV * ballFrame)       // Complete "distance from initial height" calculation
+           + (NEG_OFFSET << FRAC_BITS) // Add an offset to make sure the value is positive
+           + (1 << (FRAC_BITS - 1)))   // Add 0.5 to round up
+            >> FRAC_BITS)              // shift down to remove the fraction part
+             - NEG_OFFSET)             // Remove previously added offset
+              + ballYi;                // Add the result to the start height to get the new height
+}
+
+void playSound(const byte *score) {
+  if (arduboy.tunes.playing()) {
+    arduboy.tunes.stopScore();
+  }
+  if (arduboy.audio.enabled()) {
+    arduboy.tunes.playScore(score);
+  }
+}
+
+void debounceButtons() { // prevent "noisy" buttons from appearing as multiple presses
+  delay(250);
+  while (arduboy.buttonsState()) { }  // Wait for all keys released
+  delay(250);
 }
 
 byte getOffset(byte s) {
