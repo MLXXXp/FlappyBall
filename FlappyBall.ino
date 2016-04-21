@@ -31,8 +31,8 @@ Arduboy arduboy;
 #define PIPE_ARRAY_SIZE 4  // At current settings only 3 sets of pipes can be onscreen at once
 #define PIPE_MOVE_DISTANCE 2   // How far each pipe moves per frame
 #define PIPE_GAP_MAX 30        // Maximum pipe gap
-#define PIPE_GAP_MIN 20        // Minimum pipe gap
-#define PIPE_GAP_REDUCE 7      // Number of points scored to reduce gap size
+#define PIPE_GAP_MIN 18        // Minimum pipe gap
+#define PIPE_GAP_REDUCE 6      // Number of points scored to reduce gap size
 #define PIPE_WIDTH 12
 #define PIPE_CAP_WIDTH 2
 #define PIPE_CAP_HEIGHT 3      // Caps push back into the pipe, it's not added length
