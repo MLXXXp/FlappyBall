@@ -41,7 +41,7 @@ Arduboy arduboy;
 
 // Ball
 #define BALL_RADIUS 4
-#define BALL_Y_START (HEIGHT / 2) // The height Floaty begins at
+#define BALL_Y_START ((HEIGHT / 2) - 1) // The height Floaty begins at
 #define BALL_X 32              // Floaty's X Axis
 
 // Storage Vars
@@ -109,12 +109,24 @@ void loop() {
   if (!arduboy.nextFrame())
     return;
 
+  if (arduboy.pressed(LEFT_BUTTON)) { // If the button for sound toggle is pressed
+    if (arduboy.audio.enabled()) {    // If sound is enabled
+      arduboy.audio.off();            // Mute sounds
+    } else {
+      arduboy.audio.on();             // Enable sound
+      playSound(bing);                // Play a sound to indicate sound has been turned on
+    }
+    debounceButtons();                // Wait for button release
+  }
+
   arduboy.clear();
 
   // ===== State: Wait to begin =====
   if (gameState == 0) {     // If waiting to begin
     drawFloor();
     drawFloaty();
+    drawInfo();             // Display usage info
+
     if (jumpPressed()) {    // Wait for a jump button press
       gameState = 1;        // Then start the game
       beginJump();          // And make Floaty jump
@@ -221,7 +233,7 @@ void loop() {
     arduboy.print("High");
 
     arduboy.display();
-    delay(1500);         // Give some time to stop pressing buttons
+    delay(1000);         // Give some time to stop pressing buttons
 
     while (!jumpPressed()) { } // Wait for a jump button to be pressed
     debounceButtons();
@@ -239,8 +251,28 @@ void loop() {
   arduboy.display();  // Finally draw this thang
 }
 
+void drawInfo() {
+  byte ulStart;     // Start of underline to indicate sound status
+  byte ulLength;    // Length of underline
+
+  arduboy.setCursor(6, 3);
+  arduboy.print("A,B,Up,Down: Jump");
+  arduboy.setCursor(6, 51);
+  arduboy.print("Left: Sound On/Off");
+
+  if (arduboy.audio.enabled()) {
+    ulStart = 13 * 6;
+    ulLength = 2 * 6 - 1;
+  } else {
+    ulStart = 16 * 6;
+    ulLength = 3 * 6 - 1;
+  }
+  arduboy.drawFastHLine(ulStart, 51 + 8, ulLength, WHITE); // Underline the current sound mode
+  arduboy.drawFastHLine(ulStart, 51 + 9, ulLength, WHITE);
+}
+
 void drawFloor() {
-  arduboy.drawLine(0,HEIGHT-1,WIDTH-1,HEIGHT-1,WHITE);
+  arduboy.drawFastHLine(0, HEIGHT-1, WIDTH, WHITE);
 }
 
 void drawFloaty() {
@@ -356,9 +388,9 @@ void playSound(const byte *score) {
 }
 
 void debounceButtons() { // prevent "noisy" buttons from appearing as multiple presses
-  delay(250);
+  delay(100);
   while (arduboy.buttonsState()) { }  // Wait for all keys released
-  delay(250);
+  delay(100);
 }
 
 byte getOffset(byte s) {
