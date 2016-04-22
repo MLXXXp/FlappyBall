@@ -11,13 +11,13 @@ Arduboy arduboy;
 
 // Things that make the game work the way it does
 #define FRAMES_PER_SECOND 30   // The update and refresh speed
-#define FRAC_BITS 4            // The number of bits in the fraction part of a fixed point int
+#define FRAC_BITS 6            // The number of bits in the fraction part of a fixed point int
 
 // The following values define how fast the ball will accelerate and how high it will jump.
 // They are given as fixed point integers so the true value is multiplied by (1 << FRAC_BITS)
 // to give the value used. The resulting values must be integers.
-#define BALL_ACCELERATION 4      // (0.25) the ball acceleration in pixels per frame squared
-#define BALL_JUMP_VELOCITY (-36) // (-2.25) The inital velocity of a ball jump in pixels per frame
+#define BALL_ACCELERATION 16      // (0.25) the ball acceleration in pixels per frame squared
+#define BALL_JUMP_VELOCITY (-144) // (-2.25) The inital velocity of a ball jump in pixels per frame
 // ---------------------------
 
 // This value is an offset to make it easier to work with negative numbers.
@@ -25,14 +25,14 @@ Arduboy arduboy;
 // the start height (based on the acceleration and initial velocity values),
 // but must be low enough not to cause an overflow when added to the maximum
 // screen height as an integer.
-#define NEG_OFFSET 256
+#define NEG_OFFSET 64
 
 // Pipe
 #define PIPE_ARRAY_SIZE 4  // At current settings only 3 sets of pipes can be onscreen at once
 #define PIPE_MOVE_DISTANCE 2   // How far each pipe moves per frame
 #define PIPE_GAP_MAX 30        // Maximum pipe gap
 #define PIPE_GAP_MIN 18        // Minimum pipe gap
-#define PIPE_GAP_REDUCE 6      // Number of points scored to reduce gap size
+#define PIPE_GAP_REDUCE 5      // Number of points scored to reduce gap size
 #define PIPE_WIDTH 12
 #define PIPE_CAP_WIDTH 2
 #define PIPE_CAP_HEIGHT 3      // Caps push back into the pipe, it's not added length
