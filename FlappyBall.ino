@@ -111,6 +111,7 @@ void loop() {
 
   if (arduboy.pressed(LEFT_BUTTON)) { // If the button for sound toggle is pressed
     if (arduboy.audio.enabled()) {    // If sound is enabled
+      stopSound();                    // Stop anything that's playing
       arduboy.audio.off();            // Mute sounds
     } else {
       arduboy.audio.on();             // Enable sound
@@ -129,6 +130,7 @@ void loop() {
 
     if (jumpPressed()) {    // Wait for a jump button press
       gameState = 1;        // Then start the game
+      stopSound();          // Stop any playing sound
       beginJump();          // And make Floaty jump
     }
   }
@@ -353,7 +355,7 @@ boolean jumpPressed() { // Return "true" if a jump button is pressed
 }
 
 void beginJump() {
-  playSound(flap);
+  playSound1(flap);     // Play "flap" sound only if nothing is playing
   ballV = BALL_JUMP_VELOCITY;
   ballFrame = 0;
   ballYi = ballY;
@@ -379,11 +381,21 @@ void moveFloaty() {
 }
 
 void playSound(const byte *score) {
-  if (arduboy.tunes.playing()) {
-    arduboy.tunes.stopScore();
+  stopSound();                        // Stop any currently playing sound
+  if (arduboy.audio.enabled()) {      // If sound is on
+    arduboy.tunes.playScore(score);   // play the new sound
   }
-  if (arduboy.audio.enabled()) {
-    arduboy.tunes.playScore(score);
+}
+
+void playSound1(const byte *score) {
+  if (!arduboy.tunes.playing() && arduboy.audio.enabled()) { // If not playing and sound is on
+    arduboy.tunes.playScore(score);   // play the new sound
+  }
+}
+
+void stopSound() {
+  if (arduboy.tunes.playing()) {      // If something is playing
+    arduboy.tunes.stopScore();        // stop playing
   }
 }
 
