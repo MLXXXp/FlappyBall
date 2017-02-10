@@ -4,10 +4,43 @@
   Modified by Scott Allen, April 2016
 */
 
-#include <Arduboy.h>
+/*
+------------------------------------------------------------------------------
+Original work copyright (c) 2014, Chris Martinez
+Modifications copyright (c) 2016, 2017, Scott Allen
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+3. Neither the name of the copyright holders nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+------------------------------------------------------------------------------
+*/
+
+#include <Arduboy2.h>
+#include <ArduboyTones.h>
 #include "bitmaps.h"
 
-Arduboy arduboy;
+Arduboy2 arduboy;
+ArduboyTones sound(arduboy.audio.enabled);
 
 // Things that make the game work the way it does
 #define FRAMES_PER_SECOND 30   // The update and refresh speed
@@ -62,37 +95,39 @@ char gameScoreY = 0;
 byte gameScoreRiser = 0;
 
 // Sounds
-const byte PROGMEM bing [] = {
-0x90,0x30, 0,107, 0x80, 0x90,0x60, 1,244, 0x80, 0xf0};
-const byte PROGMEM intro [] = {
-0x90,72, 1,244, 0x80, 0x90,60, 1,244, 0x80, 0x90,64, 1,244, 0x80, 0x90,69, 1,244, 0x80, 0x90,67, 
-1,244, 0x80, 0x90,60, 1,244, 0x80, 0x90,72, 1,244, 0x80, 0x90,60, 1,244, 0x80, 0x90,64, 1,244, 
-0x80, 0x90,69, 1,244, 0x80, 0x90,67, 1,244, 0x80, 0x90,60, 1,244, 0x80, 0x90,69, 1,244, 0x80, 
-0x90,57, 1,244, 0x80, 0x90,60, 1,244, 0x80, 0x90,65, 1,244, 0x80, 0x90,62, 1,244, 0x80, 0x90,57, 
-1,244, 0x80, 0x90,69, 1,244, 0x80, 0x90,57, 1,244, 0x80, 0x90,60, 1,244, 0x80, 0x90,67, 1,244, 
-0x80, 0x90,62, 1,244, 0x80, 0x90,65, 1,244, 0x80, 0x90,72, 7,208, 0x80, 0xf0};
-const byte PROGMEM point [] = {
-0x90,83, 0,75, 0x80, 0x90,88, 0,225, 0x80, 0xf0};
-const byte PROGMEM flap [] = {
-0x90,24, 0,125, 0x80, 0xf0};
-const byte PROGMEM horns [] = {
-0x90,60, 1,44, 0x80, 0x90,50, 0,150, 0x80, 0,150, 0x90,48, 0,150, 0x80, 0x90,55, 2,238, 
-0x80, 0x90,62, 3,132, 0x80, 0x90,60, 0,37, 0x80, 0x90,59, 0,37, 0x80, 0x90,57, 0,37, 0x80, 
-0x90,55, 0,37, 0x80, 0x90,53, 0,18, 0x80, 0x90,52, 0,18, 0x80, 0x90,50, 0,18, 0x80, 0x90,48, 
-0,18, 0x80, 0x90,47, 0,18, 0x80, 0x90,45, 0,18, 0x80, 0x90,43, 0,18, 0x80, 0x90,41, 0,18, 
-0x80, 0xf0};
-const byte PROGMEM hit [] = { 
-0x90,60, 0,31, 0x80, 0x90,61, 0,31, 0x80, 0x90,62, 0,31, 0x80, 0xf0};
+const uint16_t intro[] PROGMEM = {
+  NOTE_C5,500, NOTE_C4,500, NOTE_E4,500, NOTE_A4,500, NOTE_G4,500, NOTE_C4,500,
+  NOTE_C5,500, NOTE_C4,500, NOTE_E4,500, NOTE_A4,500, NOTE_G4,500, NOTE_C4,500,
+  NOTE_A4,500, NOTE_A3,500, NOTE_C4,500, NOTE_F4,500, NOTE_D4,500, NOTE_A3,500,
+  NOTE_A4,500, NOTE_A3,500, NOTE_C4,500, NOTE_G4,500, NOTE_D4,500, NOTE_F4,500,
+  NOTE_C5, 2000, TONES_END
+};
+
+const uint16_t bing[] PROGMEM = {
+  NOTE_FS1,107, NOTE_C4,500, TONES_END
+};
+
+const uint16_t point[] PROGMEM = {
+  NOTE_B5,75, NOTE_E6,225, TONES_END
+};
+
+const uint16_t horns[] PROGMEM = {
+  NOTE_C4,300, NOTE_D3,150, NOTE_REST,150, NOTE_C3,150, NOTE_G3,750, NOTE_D4,900,
+  NOTE_B3,37, NOTE_G3,37, NOTE_E3,37, NOTE_C3,37, NOTE_A2,37, NOTE_F2,37,
+  NOTE_D2,37, NOTE_B1,500, TONES_END
+};
+
+const uint16_t hit[] PROGMEM = {
+  NOTE_C4,31, NOTE_CS4,31, NOTE_D4,31, TONES_END
+};
 
 void setup() {
   arduboy.begin();
   arduboy.setFrameRate(FRAMES_PER_SECOND);
-  playSound(bing);
-  delay(1500);
   arduboy.clear();
   arduboy.drawSlowXYBitmap(0,0,floatyball,128,64,1);
   arduboy.display();
-  playSound(intro);
+  sound.tones(intro);
   delay(500);
   arduboy.setCursor(18,55);
   arduboy.print("Press Any Button");
@@ -111,11 +146,11 @@ void loop() {
 
   if (arduboy.pressed(LEFT_BUTTON)) { // If the button for sound toggle is pressed
     if (arduboy.audio.enabled()) {    // If sound is enabled
-      stopSound();                    // Stop anything that's playing
+      sound.noTone();                 // Stop anything that's playing
       arduboy.audio.off();            // Mute sounds
     } else {
       arduboy.audio.on();             // Enable sound
-      playSound(bing);                // Play a sound to indicate sound has been turned on
+      sound.tones(bing);              // Play a sound to indicate sound has been turned on
     }
     debounceButtons();                // Wait for button release
   }
@@ -130,7 +165,7 @@ void loop() {
 
     if (jumpPressed()) {    // Wait for a jump button press
       gameState = 1;        // Then start the game
-      stopSound();          // Stop any playing sound
+      sound.noTone();       // Stop any playing sound
       beginJump();          // And make Floaty jump
     }
   }
@@ -165,7 +200,7 @@ void loop() {
           gameScoreX = BALL_X;                  // Load up the floating text with
           gameScoreY = ballY - BALL_RADIUS - 8; //  current ball x/y values
           gameScoreRiser = 15;          // And set it for 15 frames
-          playSound(point);
+          sound.tones(point);
         }
       }
     }
@@ -208,7 +243,7 @@ void loop() {
   if (gameState == 2) {  // If the gameState is 2 then we draw a Game Over screen w/ score
     if (gameScore > gameHighScore) { gameHighScore = gameScore; }
     arduboy.display();              // Make sure final frame is drawn
-    playSound(hit);                 // Hit sound
+    sound.tones(hit);               // Hit sound
     delay(100);                     // Pause for the sound
     startFalling();                 // Start falling from current position
     while (ballY + BALL_RADIUS < (HEIGHT-1)) {  // While floaty is still airborne
@@ -220,18 +255,18 @@ void loop() {
       arduboy.display();
       while (!arduboy.nextFrame()) { }  // Wait for next frame
     }
-    playSound(horns);                    // Sound the loser's horn
+    sound.tones(horns);                  // Sound the loser's horn
     arduboy.drawRect(16,8,96,48, WHITE); // Box border
     arduboy.fillRect(17,9,94,46, BLACK); // Black out the inside
     arduboy.drawSlowXYBitmap(30,12,gameover,72,14,1);
-    arduboy.setCursor(56 - getOffset(gameScore),30);
+    arduboy.setCursor(50 - getOffset(gameScore),30);
     arduboy.print(gameScore);
-    arduboy.setCursor(69,30);
+    arduboy.setCursor(62,30);
     arduboy.print("Score");
 
-    arduboy.setCursor(56 - getOffset(gameHighScore),42);
+    arduboy.setCursor(50 - getOffset(gameHighScore),42);
     arduboy.print(gameHighScore);
-    arduboy.setCursor(69,42);
+    arduboy.setCursor(62,42);
     arduboy.print("High");
 
     arduboy.display();
@@ -241,7 +276,7 @@ void loop() {
     debounceButtons();
 
     gameState = 0;       // Then start the game paused
-    playSound(intro);    // Play the intro
+    sound.tones(intro);  // Play the intro
     gameScore = 0;       // Reset score to 0
     gameScoreRiser = 0;  // Clear the floating score
     for (byte x = 0; x < PIPE_ARRAY_SIZE; x++) { pipes[0][x] = 0; }  // set all pipes inactive
@@ -320,27 +355,27 @@ boolean checkPipe(byte x) {  // Collision detection, x is pipe to check
   byte AyA = ballY - (BALL_RADIUS-1);  // of the hitbox will go outside of floaty's
   byte AyB = ballY + (BALL_RADIUS-1);  // drawing
   byte BxA, BxB, ByA, ByB;
-  
+
   // check top cylinder
   BxA = pipes[0][x];
   BxB = pipes[0][x] + PIPE_WIDTH;
   ByA = 0;
   ByB = pipes[1][x];
   if (AxA < BxB && AxB > BxA && AyA < ByB && AyB > ByA) { return true; } // Collided with top pipe
-  
+
   // check top cap
   BxA = pipes[0][x] - PIPE_CAP_WIDTH;
   BxB = BxA + PIPE_WIDTH + (PIPE_CAP_WIDTH*2);
   ByA = pipes[1][x] - PIPE_CAP_HEIGHT;
   if (AxA < BxB && AxB > BxA && AyA < ByB && AyB > ByA) { return true; } // Collided with top cap
-  
+
   // check bottom cylinder
   BxA = pipes[0][x];
   BxB = pipes[0][x] + PIPE_WIDTH;
   ByA = pipes[1][x] + pipeGap;
   ByB = HEIGHT-1;
   if (AxA < BxB && AxB > BxA && AyA < ByB && AyB > ByA) { return true; } // Collided with bottom pipe
-  
+
   // check bottom cap
   BxA = pipes[0][x] - PIPE_CAP_WIDTH;
   BxB = BxA + PIPE_WIDTH + (PIPE_CAP_WIDTH*2);
@@ -355,7 +390,9 @@ boolean jumpPressed() { // Return "true" if a jump button is pressed
 }
 
 void beginJump() {
-  playSound1(flap);     // Play "flap" sound only if nothing is playing
+  if (!sound.playing()) {   // Play "flap" sound only if nothing is playing
+   sound.tone(NOTE_C1, 125);
+  }
   ballV = BALL_JUMP_VELOCITY;
   ballFrame = 0;
   ballYi = ballY;
@@ -380,36 +417,17 @@ void moveFloaty() {
               + ballYi;                // Add the result to the start height to get the new height
 }
 
-void playSound(const byte *score) {
-  stopSound();                        // Stop any currently playing sound
-  if (arduboy.audio.enabled()) {      // If sound is on
-    arduboy.tunes.playScore(score);   // play the new sound
-  }
-}
-
-void playSound1(const byte *score) {
-  if (!arduboy.tunes.playing() && arduboy.audio.enabled()) { // If not playing and sound is on
-    arduboy.tunes.playScore(score);   // play the new sound
-  }
-}
-
-void stopSound() {
-  if (arduboy.tunes.playing()) {      // If something is playing
-    arduboy.tunes.stopScore();        // stop playing
-  }
-}
-
 void debounceButtons() { // prevent "noisy" buttons from appearing as multiple presses
   delay(100);
   while (arduboy.buttonsState()) { }  // Wait for all keys released
   delay(100);
 }
 
-byte getOffset(byte s) {
-  if (s > 9999) { return 20; }
-  if (s > 999) { return 15; }
-  if (s > 99) { return 10; }
-  if (s > 9) { return 5; }
+byte getOffset(unsigned int s) {
+  if (s > 9999) { return 24; }
+  if (s > 999) { return 18; }
+  if (s > 99) { return 12; }
+  if (s > 9) { return 6; }
   return 0;
 }
 
