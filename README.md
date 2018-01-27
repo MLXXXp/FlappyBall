@@ -1,4 +1,4 @@
-#Flappy Ball
+# Flappy Ball
 
 For the [Arduboy](https://www.arduboy.com/) Arduino based game system.
 
