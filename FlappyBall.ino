@@ -112,6 +112,11 @@ void loadHighScore() {
   else gameHighScore = 0;
 }
 
+void clearHighScore() {
+  gameHighScore = 0;
+  saveHighScore();
+}
+
 // Sounds
 const uint16_t intro[] PROGMEM = {
   NOTE_C5,500, NOTE_C4,500, NOTE_E4,500, NOTE_A4,500, NOTE_G4,500, NOTE_C4,500,
@@ -186,6 +191,11 @@ void loop() {
       gameState = 1;        // Then start the game
       sound.noTone();       // Stop any playing sound
       beginJump();          // And make Floaty jump
+    }
+    if (gameHighScore != 0) {              // If a high score is set
+      if (arduboy.pressed(RIGHT_BUTTON)) { // If the button for high score clearing is pressed
+        clearHighScore();                  // Clear the high score
+      }
     }
   }
 
@@ -313,6 +323,12 @@ void drawInfo() {
 
   arduboy.setCursor(6, 3);
   arduboy.print("A,B,Up,Down: Jump");
+  if (gameHighScore != 0) {       // If a high score is set
+    arduboy.setCursor(42, 12);    // Print info on how to clear it
+    arduboy.print("Right: Clear");
+    arduboy.setCursor(84, 21);
+    arduboy.print("HiScore");
+  }
   arduboy.setCursor(6, 51);
   arduboy.print("Left: Sound On/Off");
 
