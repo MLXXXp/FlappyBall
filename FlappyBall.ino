@@ -94,6 +94,29 @@ char gameScoreX = 0;
 char gameScoreY = 0;
 byte gameScoreRiser = 0;
 
+#define EEPROM_MAGIC_VALUE       0x25 // Arbitrary value, to help us know whether we should
+                                      // reinitialize the high score, like in case some other
+                                      // sketch was using EEPROM before.
+#define EEPROM_MAGIC_ADDRESS     (EEPROM_STORAGE_SPACE_START+0)
+#define EEPROM_HIGHSCORE_ADDRESS (EEPROM_STORAGE_SPACE_START+1)
+
+void saveHighScore() {
+  EEPROM.update(EEPROM_MAGIC_ADDRESS, EEPROM_MAGIC_VALUE);
+  EEPROM.put(EEPROM_HIGHSCORE_ADDRESS, gameHighScore);
+}
+
+void loadHighScore() {
+  if (EEPROM.read(EEPROM_MAGIC_ADDRESS) == EEPROM_MAGIC_VALUE) {
+    EEPROM.get(EEPROM_HIGHSCORE_ADDRESS, gameHighScore);
+  }
+  else gameHighScore = 0;
+}
+
+void clearHighScore() {
+  gameHighScore = 0;
+  saveHighScore();
+}
+
 // Sounds
 const uint16_t intro[] PROGMEM = {
   NOTE_C5,500, NOTE_C4,500, NOTE_E4,500, NOTE_A4,500, NOTE_G4,500, NOTE_C4,500,
@@ -122,6 +145,7 @@ const uint16_t hit[] PROGMEM = {
 };
 
 void setup() {
+  loadHighScore();
   arduboy.begin();
   arduboy.setFrameRate(FRAMES_PER_SECOND);
   arduboy.clear();
@@ -167,6 +191,11 @@ void loop() {
       gameState = 1;        // Then start the game
       sound.noTone();       // Stop any playing sound
       beginJump();          // And make Floaty jump
+    }
+    if (gameHighScore != 0) {              // If a high score is set
+      if (arduboy.pressed(RIGHT_BUTTON)) { // If the button for high score clearing is pressed
+        clearHighScore();                  // Clear the high score
+      }
     }
   }
 
@@ -241,7 +270,7 @@ void loop() {
 
   // ===== State: Game Over =====
   if (gameState == 2) {  // If the gameState is 2 then we draw a Game Over screen w/ score
-    if (gameScore > gameHighScore) { gameHighScore = gameScore; }
+    if (gameScore > gameHighScore) { gameHighScore = gameScore; saveHighScore(); }
     arduboy.display();              // Make sure final frame is drawn
     sound.tones(hit);               // Hit sound
     delay(100);                     // Pause for the sound
@@ -294,6 +323,12 @@ void drawInfo() {
 
   arduboy.setCursor(6, 3);
   arduboy.print("A,B,Up,Down: Jump");
+  if (gameHighScore != 0) {       // If a high score is set
+    arduboy.setCursor(42, 12);    // Print info on how to clear it
+    arduboy.print("Right: Clear");
+    arduboy.setCursor(84, 21);
+    arduboy.print("HiScore");
+  }
   arduboy.setCursor(6, 51);
   arduboy.print("Left: Sound On/Off");
 
